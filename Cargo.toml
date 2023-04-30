@@ -85,7 +85,7 @@ optional = true
 version = '0.26.0'
 
 [patch.'https://github.com/tonlabs/ever-block.git']
-ton_block = { git = 'https://github.com/Rexagon/ton-labs-block.git', rev = "3c67149cdbdf9ed584482a75da936ea5a5a1bab8" }
+ton_block = { git = 'https://github.com/Rexagon/ton-labs-block.git', rev = "0898b0b24d61c28e57ebd65cc8be0ee363b4980a" }
 
 [patch.'https://github.com/tonlabs/ever-block-json.git']
 ton_block_json = { git = 'https://www.github.com/tonlabs/ever-block-json.git', tag = '0.7.108-patch-01' }
