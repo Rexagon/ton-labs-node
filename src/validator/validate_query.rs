@@ -253,9 +253,9 @@ impl ValidateQuery {
     }
 
 /*
- * 
+ *
  *   INITIAL PARSE & LOAD REQUIRED DATA
- * 
+ *
  */
 
 
@@ -312,7 +312,7 @@ impl ValidateQuery {
             0 => soft_reject_query!("must have one or two previous blocks to generate a next block"),
             _ => soft_reject_query!("cannot have more than two previous blocks")
         }
-        
+
         // 4. unpack block candidate (while necessary data is being loaded)
         Self::unpack_block_candidate(base, &mut self.block_candidate)
     }
@@ -524,8 +524,8 @@ impl ValidateQuery {
     // }
 
     fn try_unpack_mc_state(
-        &mut self, 
-        base: &ValidateBase, 
+        &mut self,
+        base: &ValidateBase,
         mc_state: Arc<ShardStateStuff>
     ) -> Result<McData> {
         log::debug!(target: "validate_query", "unpacking reference masterchain state {}", mc_state.block_id());
@@ -605,9 +605,9 @@ impl ValidateQuery {
     }
 
 /*
- * 
+ *
  *  METHODS CALLED FROM try_validate() stage 0
- * 
+ *
  */
 
     fn compute_next_state(&mut self, base: &mut ValidateBase, mc_data: &McData) -> Result<()> {
@@ -629,7 +629,7 @@ impl ValidateQuery {
             .map_err(|err| error!("cannot apply Merkle update from block to compute new state : {}", err))?;
         log::debug!(target: "validate_query", "next state computed");
         let next_state = ShardStateStuff::from_root_cell(
-            base.block_id().clone(), 
+            base.block_id().clone(),
             next_state_root.clone(),
             #[cfg(feature = "telemetry")]
             self.engine.engine_telemetry(),
@@ -941,7 +941,7 @@ impl ValidateQuery {
             fsm_inherited = !prev.descr().is_fsm_none() && prev.descr().fsm_equal(info.descr());
             if fsm_inherited && (base.now() > prev.descr().fsm_utime_end() || info.descr.before_split) {
                 reject_query!("future split/merge information for shard {}\
-                    has been carried on to the new shard configuration, but it is either expired (expire time {}, now {}), 
+                    has been carried on to the new shard configuration, but it is either expired (expire time {}, now {}),
                     or before_split bit has been set ({})",
                         shard, prev.descr().fsm_utime_end(), base.now(), info.descr.before_split);
             }
@@ -970,7 +970,7 @@ impl ValidateQuery {
             }
             if info.descr().is_fsm_merge() && !merge_cond {
                 reject_query!("announcing future merge for shard {} in new shard configuration, \
-                    but merge conditions are not met", shard) 
+                    but merge conditions are not met", shard)
             }
         }
         if info.descr.before_merge {
@@ -1120,9 +1120,9 @@ impl ValidateQuery {
         let (nodes, _hash_short) = calc_subset_for_workchain(
             &cur_validators,
             &base.next_state_extra.config,
-            &ccvc, 
-            self.shard.shard_prefix_with_tag(), 
-            self.shard.workchain_id(), 
+            &ccvc,
+            self.shard.shard_prefix_with_tag(),
+            self.shard.workchain_id(),
             catchain_seqno,
             now.into()
         )?;
@@ -1189,9 +1189,9 @@ impl ValidateQuery {
     }
 
 /*
- * 
+ *
  *  METHODS CALLED FROM try_validate() stage 1
- * 
+ *
  */
 
     fn load_block_data(base: &mut ValidateBase) -> Result<()> {
@@ -1398,12 +1398,12 @@ impl ValidateQuery {
     }
 
     fn precheck_one_transaction(
-        base: &ValidateBase, 
-        acc_id: &AccountId, 
-        trans_lt: u64, 
+        base: &ValidateBase,
+        acc_id: &AccountId,
+        trans_lt: u64,
         trans_root: Cell,
-        prev_trans_lt: &mut u64, 
-        prev_trans_hash: &mut UInt256, 
+        prev_trans_lt: &mut u64,
+        prev_trans_hash: &mut UInt256,
         prev_trans_lt_len: &mut u64,
         acc_state_hash: &mut UInt256
     ) -> Result<Option<(UInt256, bool)>> {
@@ -1444,7 +1444,7 @@ impl ValidateQuery {
         }
         let msg_info = match (trans.in_msg_cell(), trans.read_in_msg()?) {
             (Some(root), Some(msg)) => Some((root.repr_hash(), msg.is_internal())),
-            _ => None 
+            _ => None
         };
         *prev_trans_lt_len = lt_len;
         *prev_trans_lt = trans_lt;
@@ -1454,7 +1454,7 @@ impl ValidateQuery {
         // trans.out_msgs.iterate_slices_with_keys(|key, value| {
         trans.out_msgs.iterate_keys(|key: U15| {
             if c != key.0 {
-                reject_query!("transaction {} of {} has invalid indices in the out_msg dictionary (keys 0 .. {} expected)", 
+                reject_query!("transaction {} of {} has invalid indices in the out_msg dictionary (keys 0 .. {} expected)",
                 trans_lt, acc_id.to_hex_string(), trans.msg_count() - 1)
             } else {
                 c += 1;
@@ -1468,7 +1468,7 @@ impl ValidateQuery {
     fn precheck_one_account_block(base: &ValidateBase, acc_id: &UInt256, acc_blk: AccountBlock, engine: &Arc<dyn EngineOperations>) -> Result<()> {
         let acc_id = AccountId::from(acc_id.clone());
         log::debug!(target: "validate_query", "pre-checking AccountBlock for {}", acc_id.to_hex_string());
-        
+
         if !base.shard().contains_account(acc_id.clone())? {
             reject_query!("new block {} contains AccountBlock for account {} not belonging to the block's shard {}",
                 base.block_id(), acc_id.to_hex_string(), base.shard())
@@ -1523,7 +1523,7 @@ impl ValidateQuery {
                 &mut last_trans_lt_len,
                 &mut acc_state_hash
             ).map_err(|err| error!("transaction {:x} of account {:x} is invalid : {}", trans_lt, acc_id, err))?;
-            
+
             let remp = base.config_params.has_capability(GlobalCapabilities::CapRemp);
             if remp {
                 if let Some((id, is_internal)) = msg_info {
@@ -2275,7 +2275,7 @@ impl ValidateQuery {
         // next hop may coincide with current address only if destination is already reached
         if next_prefix == cur_prefix && cur_prefix != dest_prefix {
             reject_query!("next hop address {}... of outbound internal message with hash {} \
-                coincides with its current address, but this message has not reached its final destination {} ... yet", 
+                coincides with its current address, but this message has not reached its final destination {} ... yet",
                   next_prefix, key.to_hex_string(), dest_prefix)
         }
         // if a message is created by a transaction, it must have source inside the current shard
@@ -2471,7 +2471,7 @@ impl ValidateQuery {
                     let q_entry = manager.next().message(&q_key)?;
                     let enq_msg_descr = manager.prev().message(&q_key)?.ok_or_else(|| error!(
                             "msg_export_tr_req OutMsg record with key {:x} was expected to dequeue message from \
-                            OutMsgQueue with key {:x} but such a message is absent from the old OutMsgQueue", 
+                            OutMsgQueue with key {:x} but such a message is absent from the old OutMsgQueue",
                                 key, q_key))?;
                     if q_entry.is_some() {
                         reject_query!("msg_export_tr_req OutMsg record with key {:x} \
@@ -2496,7 +2496,7 @@ impl ValidateQuery {
                             somehow imported a different MsgEnvelope from that dequeued by msg_export_deq_imm", key.to_hex_string())
                     }
                     if !base.shard().contains_full_prefix(&cur_prefix) {
-                        reject_query!("msg_export_deq_imm OutMsg record with key {} 
+                        reject_query!("msg_export_deq_imm OutMsg record with key {}
                             dequeued a MsgEnvelope with current address {}... outside current shard",
                                 key.to_hex_string(), cur_prefix)
                     }
@@ -2669,7 +2669,7 @@ impl ValidateQuery {
                 Some(InMsg::Final(info)) => info.envelope_message_hash(),
                 Some(InMsg::Transit(info)) => info.in_envelope_message_hash(),
                 None => reject_query!("there is no InMsg entry for processing EnqueuedMsg with key {:x} \
-                    of neighbor {} which is claimed to be processed by new ProcessedInfo of this block", 
+                    of neighbor {} which is claimed to be processed by new ProcessedInfo of this block",
                         key, nb_block_id),
                 _ => reject_query!("expected either a msg_import_fin or a msg_import_tr InMsg record \
                     for processing EnqueuedMsg with key {:x} of neighbor {} which is claimed to be processed \
@@ -2827,6 +2827,7 @@ impl ValidateQuery {
         let mut money_imported = CurrencyCollection::default();
         let mut money_exported = CurrencyCollection::default();
         let in_msg = trans.read_in_msg()?;
+        let mut depth = None;
         if let Some(in_msg_root) = trans.in_msg_cell() {
             let in_msg = base.in_msg_descr.get(&in_msg_root.repr_hash())?.ok_or_else(|| error!("inbound message with hash {} of \
                 transaction {} of account {} does not have a corresponding InMsg record",
@@ -2836,7 +2837,9 @@ impl ValidateQuery {
             // have still to check its destination address and imported value
             // and that it refers to this transaction
             match in_msg {
-                InMsg::External(_) => (),
+                InMsg::External(_) => {
+                    depth = Some(0);
+                },
                 InMsg::IHR(_) | InMsg::Immediate(_) | InMsg::Final(_) => {
                     let header = msg.int_header().ok_or_else(|| error!("inbound message transaction {} of {} must have \
                         internal message header", lt, account_addr.to_hex_string()))?;
@@ -2848,8 +2851,16 @@ impl ValidateQuery {
                         base.result.msg_proc_lt.push((account_addr.clone(), lt, header.created_lt));
                     }
                     money_imported = header.value.clone();
-                    if let InMsg::IHR(_) = in_msg {
-                        money_imported.grams.add(&header.ihr_fee)?;
+
+                    match &in_msg {
+                        InMsg::Immediate(msg) | InMsg::Final(msg) => {
+                            let env = msg.read_envelope_message()?;
+                            depth = Some(env.depth());
+                        }
+                        InMsg::IHR(_) => {
+                            money_imported.grams.add(&header.ihr_fee)?;
+                        }
+                        _ => {}
                     }
                 }
                 _ => reject_query!("inbound message with hash {} of transaction {} of account {} \
@@ -2874,6 +2885,22 @@ impl ValidateQuery {
                 }
             }
         }
+        let depth = depth.unwrap_or_default();
+
+        let depth_diff = if let Some(true) = config.tree_limits().as_ref().map(|limits| limits.track_width) {
+            let mut msg_count = 0u32;
+            trans.out_msgs.iterate_slices(|slice| {
+                let msg_cell = slice.reference(0)?;
+                let msg = Message::construct_from_cell(msg_cell.clone())?;
+                msg_count += msg.dst().is_some() as u32;
+                Ok(true)
+            })?;
+            msg_count
+        } else {
+            1
+        };
+        let new_depth = depth.saturating_add(depth_diff);
+
         // check output messages
         trans.out_msgs.iterate_slices_with_keys(|ref mut key, ref out_msg| {
             let out_msg_root = out_msg.reference(0)?;
@@ -2881,6 +2908,7 @@ impl ValidateQuery {
             let out_msg = base.out_msg_descr.get(&out_msg_root.repr_hash())?.ok_or_else(|| error!("outbound message #{} \
                 with hash {} of transaction {} of account {} does not have a corresponding  record",
                     i, out_msg_root.repr_hash().to_hex_string(), lt, account_addr.to_hex_string()))?;
+
             // once we know there is an OutMsg with correct hash, we already know that it contains a message with this hash (by the verification of OutMsg), so it is our message
             // have still to check its source address, lt and imported value
             // and that it refers to this transaction as its origin
@@ -2894,6 +2922,11 @@ impl ValidateQuery {
                     money_exported.grams.add(&header.ihr_fee)?;
                     if let Some(msg_env) = out_msg.read_out_message()? {
                         money_exported.grams.add(&msg_env.fwd_fee_remaining())?;
+
+                        if msg_env.depth() != new_depth {
+                            reject_query!("transaction {} of account {} has different depth of outgoing message - {}, expected - {}",
+                            lt, account_addr.to_hex_string(), msg_env.depth(), new_depth);
+                        }
                     }
                     // unpack exported message value (from this transaction)
                 }
@@ -3107,6 +3140,7 @@ impl ValidateQuery {
             block_version: base.info.gen_software().unwrap_or(&config_params::GlobalVersion::new()).version,
             #[cfg(feature = "signature_with_id")]
             signature_id: base.global_id,  // Use network global ID as signature ID
+            depth,
             ..ExecuteParams::default()
         };
         let _old_account_root = account_root.clone();
@@ -3360,7 +3394,7 @@ impl ValidateQuery {
                 but the correct address defined by the configuration is {}",
                     msg_hash.to_hex_string(), dst_addr.to_hex_string(), addr.to_hex_string())
         }
-        
+
         if msg.body().map(|cs| !cs.is_empty()).unwrap_or_default() {
             reject_query!("special message with hash {} has a non-empty body", msg_hash.to_hex_string())
         }
@@ -3419,7 +3453,7 @@ impl ValidateQuery {
             || error!("Next state is not initialized in validator query")
         )?.state().libraries().clone();
         old.scan_diff(
-            &new, 
+            &new,
             |key: UInt256, old, new| Self::check_one_library_update(key, old, new, &mut lib_publishers2)
         ).map_err(|err| error!("invalid shard libraries dictionary in the new state : {}", err))?;
 
@@ -3454,7 +3488,7 @@ impl ValidateQuery {
                 min_seq_no => min_seq_no
             };
             let ref_mc_seqno = std::cmp::min(
-                min_seq_no, 
+                min_seq_no,
                 std::cmp::min(base.min_shard_ref_mc_seqno(), my_mc_seqno)
             );
             if next_state.min_ref_mc_seqno() != ref_mc_seqno {
@@ -3465,10 +3499,10 @@ impl ValidateQuery {
                     base.block_id(), next_state.min_ref_mc_seqno(), ref_mc_seqno,
                     my_mc_seqno, base.min_shard_ref_mc_seqno(), min_seq_no
                 )
-            }            
+            }
             if !next_state.read_out_msg_queue_info()?.ihr_pending().is_empty() {
                 reject_query!(
-                    "IhrPendingInfo in the new state of {} is non-empty, 
+                    "IhrPendingInfo in the new state of {} is non-empty,
                     but IHR delivery is now disabled", base.block_id()
                 )
             }
@@ -3510,7 +3544,7 @@ impl ValidateQuery {
                 )
             }
             log::debug!(
-                target: "validate_query", 
+                target: "validate_query",
                 "checking total validator fees: new={}+recovered={} == old={}+collected={}",
                 next_state.total_validator_fees(), base.value_flow.recovered,
                 base.prev_validator_fees, base.value_flow.fees_collected
@@ -3549,7 +3583,7 @@ impl ValidateQuery {
             Self::check_shard_libraries(base).map_err(
                 |err| error!("the set of public libraries in the new state is invalid : {}", err)
             )?;
-        } 
+        }
         let next_state = base.next_state.as_ref().ok_or_else(
             || error!("Next state is not initialized in validator query")
         )?.state();
@@ -3579,7 +3613,7 @@ impl ValidateQuery {
             reject_query!("old configuration failed to pass letmated validity checks")
         }
         if !base.next_state_extra.config.valid_config_data(false, None)? {
-            reject_query!("new configuration parameters failed to pass per-parameter letmated validity checks, 
+            reject_query!("new configuration parameters failed to pass per-parameter letmated validity checks,
                 or one of mandatory configuration parameters is missing")
         }
         let new_accounts = base.next_state.as_ref().ok_or_else(
@@ -3725,7 +3759,7 @@ impl ValidateQuery {
         if !base.shard().is_masterchain() {
             if next_state.custom_cell().is_some() {
                 reject_query!(
-                    "new state defined by non-masterchain block {} contains a McStateExtra", 
+                    "new state defined by non-masterchain block {} contains a McStateExtra",
                     base.block_id()
                 )
             }
@@ -3733,7 +3767,7 @@ impl ValidateQuery {
         }
         let import_created = base.mc_extra.fees().root_extra().create.clone();
         log::debug!(
-            target: "validate_query", 
+            target: "validate_query",
             "checking header of McStateExtra in the new masterchain state"
         );
         if prev_state.custom_cell().is_none() {
@@ -3822,7 +3856,7 @@ impl ValidateQuery {
                 reject_query!(
                     "last_key_block has been set in the new masterchain state to {} with lt {}, \
                     but the only possible value for this update is the previous block {} \
-                    with lt {}", block_id, last_key_block.end_lt, base.prev_blocks_ids[0], 
+                    with lt {}", block_id, last_key_block.end_lt, base.prev_blocks_ids[0],
                     mc_data.state.state().gen_lt()
                 )
             }
@@ -4047,10 +4081,10 @@ impl ValidateQuery {
     }
 
 /*
- * 
+ *
  *   MAIN VALIDATOR FUNCTION
  *     (invokes other methods in a suitable order)
- * 
+ *
  */
 
     async fn common_preparation(&mut self) -> Result<(ValidateBase, McData)> {
