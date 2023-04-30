@@ -50,7 +50,7 @@ impl MsgEnvelopeStuff {
             next_prefix,
         })
     }
-    pub fn new(msg: Message, shard: &ShardIdent, fwd_fee: Grams, use_hypercube: bool) -> Result<Self> {
+    pub fn new(msg: Message, shard: &ShardIdent, fwd_fee: Grams, use_hypercube: bool, depth: u32) -> Result<Self> {
         let msg_cell = msg.serialize()?;
         let src = msg.src_ref().ok_or_else(|| error!("source address of message {:x} is invalid", msg_cell.repr_hash()))?;
         let src_prefix = AccountIdPrefixFull::prefix(src)?;
@@ -61,7 +61,8 @@ impl MsgEnvelopeStuff {
             msg_cell,
             fwd_fee,
             cur_addr,
-            next_addr
+            next_addr,
+            depth
         );
         let cur_prefix  = src_prefix.interpolate_addr_intermediate(&dst_prefix, env.cur_addr())?;
         let next_prefix = src_prefix.interpolate_addr_intermediate(&dst_prefix, env.next_addr())?;
@@ -78,6 +79,7 @@ impl MsgEnvelopeStuff {
     pub fn message(&self) -> &Message { &self.msg }
     pub fn message_hash(&self) -> UInt256 { self.env.message_hash() }
     pub fn message_cell(&self) -> Cell { self.env.message_cell() }
+    pub fn depth(&self) -> u32 { self.env.depth() }
     pub fn dst_prefix(&self) -> &AccountIdPrefixFull { &self.dst_prefix }
     pub fn cur_prefix(&self) -> &AccountIdPrefixFull { &self.cur_prefix }
     pub fn next_prefix(&self) -> &AccountIdPrefixFull { &self.next_prefix }
@@ -138,7 +140,7 @@ impl MsgEnqueueStuff {
         let cur_prefix  = self.env.next_prefix.interpolate_addr_intermediate(&self.env.dst_prefix, &cur_addr)?;
         let next_prefix = self.env.next_prefix.interpolate_addr_intermediate(&self.env.dst_prefix, &next_addr)?;
         let msg = self.message().clone();
-        let env = MsgEnvelope::with_routing(self.message_cell().clone(), fwd_fee_remaining, cur_addr, next_addr);
+        let env = MsgEnvelope::with_routing(self.message_cell().clone(), fwd_fee_remaining, cur_addr, next_addr, self.env.depth());
         let env = MsgEnvelopeStuff {
             env,
             msg,
@@ -158,10 +160,10 @@ impl MsgEnqueueStuff {
     /// create enqeue for message
     /// create envelope message
     /// all fee from message
-    pub fn new(msg: Message, shard: &ShardIdent, fwd_fee: Grams, use_hypercube: bool) -> Result<Self> {
+    pub fn new(msg: Message, shard: &ShardIdent, fwd_fee: Grams, use_hypercube: bool, depth: u32) -> Result<Self> {
         let created_lt = msg.lt().unwrap_or_default();
         let enqueued_lt = created_lt;
-        let env = MsgEnvelopeStuff::new(msg, shard, fwd_fee, use_hypercube)?;
+        let env = MsgEnvelopeStuff::new(msg, shard, fwd_fee, use_hypercube, depth)?;
         let enq = EnqueuedMsg::with_param(enqueued_lt, env.inner())?;
         Ok(Self{
             env,
@@ -198,6 +200,9 @@ impl MsgEnqueueStuff {
     pub fn message(&self) -> &Message {
         &self.env.msg
     }
+    pub fn depth(&self) -> u32 {
+        self.env.depth()
+    }
     pub fn out_msg_key(&self) -> OutMsgQueueKey {
         OutMsgQueueKey::with_account_prefix(&self.next_prefix(), self.message_hash())
     }
@@ -207,7 +212,7 @@ impl MsgEnqueueStuff {
     }
     pub fn created_lt(&self) -> u64 { self.created_lt }
     pub fn enqueued_lt(&self) -> u64 { self.enqueued_lt }
-// Unused 
+// Unused
 //    pub fn src_prefix(&self) -> &AccountIdPrefixFull { self.env.src_prefix() }
     pub fn dst_prefix(&self) -> &AccountIdPrefixFull { self.env.dst_prefix() }
     pub fn cur_prefix(&self) -> &AccountIdPrefixFull { self.env.cur_prefix() }
@@ -218,9 +223,9 @@ impl MsgEnqueueStuff {
 impl Display for MsgEnqueueStuff {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
-            f, 
-            "message with (lt,hash)=({},{:x}), enqueued_lt={}", 
-            self.created_lt, 
+            f,
+            "message with (lt,hash)=({},{:x}), enqueued_lt={}",
+            self.created_lt,
             self.message_hash(),
             self.enqueued_lt
         )?;
