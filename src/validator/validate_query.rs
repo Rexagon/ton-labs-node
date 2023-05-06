@@ -47,11 +47,11 @@ use ton_block::{
     OutMsgQueueKey, Serializable, ShardAccount, ShardAccountBlocks, ShardAccounts, ShardFeeCreated,
     ShardHashes, ShardIdent, StateInitLib, TopBlockDescrSet, TrComputePhase, Transaction,
     TransactionDescr, ValidatorSet, ValueFlow, WorkchainDescr, INVALID_WORKCHAIN_ID,
-    MASTERCHAIN_ID, MAX_SPLIT_DEPTH, U15,
+    MASTERCHAIN_ID, MAX_SPLIT_DEPTH, U15, TransactionTreeStats,
 };
 use ton_executor::{
     BlockchainConfig, CalcMsgFwdFees, ExecuteParams, OrdinaryTransactionExecutor,
-    TickTockTransactionExecutor, TransactionExecutor,
+    TickTockTransactionExecutor, TransactionExecutor
 };
 use ton_types::{
     deserialize_cells_tree, fail, AccountId, Cell, CellType, HashmapType, Result, SliceData,
@@ -2822,12 +2822,13 @@ impl ValidateQuery {
             lt, trans_root.repr_hash().to_hex_string(), account_addr.to_hex_string());
         let trans = Transaction::construct_from_cell(trans_root.clone())?;
         let account_create = account.is_none();
+        let track_tx_tree_stats = config.has_capability(GlobalCapabilities::CapTrackTxTreeStats);
 
         // check input message
         let mut money_imported = CurrencyCollection::default();
         let mut money_exported = CurrencyCollection::default();
         let in_msg = trans.read_in_msg()?;
-        let mut depth = None;
+        let mut tx_tree_stats = None;
         if let Some(in_msg_root) = trans.in_msg_cell() {
             let in_msg = base.in_msg_descr.get(&in_msg_root.repr_hash())?.ok_or_else(|| error!("inbound message with hash {} of \
                 transaction {} of account {} does not have a corresponding InMsg record",
@@ -2838,7 +2839,7 @@ impl ValidateQuery {
             // and that it refers to this transaction
             match in_msg {
                 InMsg::External(_) => {
-                    depth = Some(0);
+                    tx_tree_stats = Some(TransactionTreeStats::default());
                 },
                 InMsg::IHR(_) | InMsg::Immediate(_) | InMsg::Final(_) => {
                     let header = msg.int_header().ok_or_else(|| error!("inbound message transaction {} of {} must have \
@@ -2853,9 +2854,9 @@ impl ValidateQuery {
                     money_imported = header.value.clone();
 
                     match &in_msg {
-                        InMsg::Immediate(msg) | InMsg::Final(msg) => {
+                        InMsg::Immediate(msg) | InMsg::Final(msg) if track_tx_tree_stats => {
                             let env = msg.read_envelope_message()?;
-                            depth = Some(env.depth());
+                            tx_tree_stats = env.tx_tree_stats().clone();
                         }
                         InMsg::IHR(_) => {
                             money_imported.grams.add(&header.ihr_fee)?;
@@ -2885,21 +2886,13 @@ impl ValidateQuery {
                 }
             }
         }
-        let depth = depth.unwrap_or_default();
+        let tx_tree_stats = tx_tree_stats.unwrap_or_default();
 
-        let depth_diff = if let Some(true) = config.tree_limits().as_ref().map(|limits| limits.track_width) {
-            let mut msg_count = 0u32;
-            trans.out_msgs.iterate_slices(|slice| {
-                let msg_cell = slice.reference(0)?;
-                let msg = Message::construct_from_cell(msg_cell.clone())?;
-                msg_count += msg.dst().is_some() as u32;
-                Ok(true)
-            })?;
-            msg_count
+        let next_tx_tree_stats = if track_tx_tree_stats {
+            config.calc_tx_tree_depth_diff(tx_tree_stats.clone(), &trans)?.into_plain().ok()
         } else {
-            1
+            None
         };
-        let new_depth = depth.saturating_add(depth_diff);
 
         // check output messages
         trans.out_msgs.iterate_slices_with_keys(|ref mut key, ref out_msg| {
@@ -2923,9 +2916,9 @@ impl ValidateQuery {
                     if let Some(msg_env) = out_msg.read_out_message()? {
                         money_exported.grams.add(&msg_env.fwd_fee_remaining())?;
 
-                        if msg_env.depth() != new_depth {
-                            reject_query!("transaction {} of account {} has different depth of outgoing message - {}, expected - {}",
-                            lt, account_addr.to_hex_string(), msg_env.depth(), new_depth);
+                        if msg_env.tx_tree_stats() != &next_tx_tree_stats {
+                            reject_query!("transaction {} of account {} has different depth of outgoing message - {:?}, expected - {:?}",
+                            lt, account_addr.to_hex_string(), msg_env.tx_tree_stats(), next_tx_tree_stats);
                         }
                     }
                     // unpack exported message value (from this transaction)
@@ -3140,7 +3133,7 @@ impl ValidateQuery {
             block_version: base.info.gen_software().unwrap_or(&config_params::GlobalVersion::new()).version,
             #[cfg(feature = "signature_with_id")]
             signature_id: base.global_id,  // Use network global ID as signature ID
-            depth,
+            tx_tree_stats,
             ..ExecuteParams::default()
         };
         let _old_account_root = account_root.clone();
