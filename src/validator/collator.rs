@@ -374,10 +374,10 @@ impl CollatorData {
         let mut next_tx_tree_stats = None;
         if self.config.has_capability(GlobalCapabilities::CapTrackTxTreeStats) {
             next_tx_tree_stats = self.config.calc_tx_tree_depth_diff(tx_tree_stats.unwrap_or_default(), transaction)?.into_plain().ok();
-        }
 
-        if next_tx_tree_stats.is_none() && transaction.msg_count() != 0 {
-            fail!("Transactions tree limit reached, but out messages were produced");
+            if next_tx_tree_stats.is_none() && transaction.msg_count() != 0 {
+                fail!("Transactions tree limit reached, but out messages were produced");
+            }
         }
 
         transaction.out_msgs.iterate_slices(|slice| {
